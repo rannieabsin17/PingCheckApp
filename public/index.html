@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Monitor - Dark Mode</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .card {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border: 1px solid #333;
+            box-shadow: 2px 2px 10px rgba(255, 255, 255, 0.1);
+        }
+        .ranking-card {
+            background-color: #222;
+            border: 1px solid #444;
+            padding: 15px;
+            height: 100%;
+        }
+        .alert {
+            color: #ffffff;
+            border: 1px solid #444;
+        }
+        .alert-success { background-color: #28a745; }
+        .alert-warning { background-color: #ffc107; }
+        .alert-danger { background-color: #dc3545; }
+        .alert-secondary { background-color: #555; }
+    </style>
+    <script>
+        let pingIntervals = {};
+        let pingResults = {}; // Stores results for sorting
+
+        function loadSavedIPs() {
+            for (let i = 1; i <= 12; i++) {
+                const savedIP = localStorage.getItem(`host-${i}`);
+                if (savedIP) {
+                    document.getElementById(`host-${i}`).value = savedIP;
+                }
+            }
+        }
+
+        function saveIP(id) {
+            const ip = document.getElementById(`host-${id}`).value;
+            localStorage.setItem(`host-${id}`, ip);
+        }
+
+        async function checkPing(id) {
+            const host = document.getElementById(`host-${id}`).value;
+            const response = await fetch(`/ping?host=${host}`);
+            const data = await response.json();
+            const statusDisplay = document.getElementById(`status-${id}`);
+
+            let latency = data.latency === "N/A" ? Infinity : parseInt(data.latency);
+            pingResults[host] = latency;
+
+            if (data.status == "green") {
+                data.status = "success";
+            } else if (data.status == "yellow") {
+                data.status = "warning";
+            } else {
+                data.status = "danger";
+            }
+
+            statusDisplay.textContent = data.message;
+            statusDisplay.className = `alert alert-${data.status} mt-2`;
+
+            updateRanking();
+        }
+
+        function updateRanking() {
+            let sortedResults = Object.entries(pingResults).sort((a, b) => a[1] - b[1]);
+            let rankingList = document.getElementById("ranking-list");
+            rankingList.innerHTML = "<h5 class='text-light'>Ping Rankings</h5>";
+
+            sortedResults.forEach(([host, latency]) => {
+                if (latency !== Infinity) {
+                    rankingList.innerHTML += `<p class="text-light">${host} - ${latency}ms</p>`;
+                } else {
+                    rankingList.innerHTML += `<p class="text-danger">${host} - No Response</p>`;
+                }
+            });
+        }
+
+        function startPing(id) {
+            if (!pingIntervals[id]) {
+                checkPing(id);
+                pingIntervals[id] = setInterval(() => checkPing(id), 1000);
+            }
+        }
+
+        function stopPing(id) {
+            clearInterval(pingIntervals[id]);
+            pingIntervals[id] = null;
+            document.getElementById(`status-${id}`).textContent = "Ping Stopped";
+            document.getElementById(`status-${id}`).className = "alert alert-secondary mt-2";
+        }
+
+        function startAll() {
+            for (let i = 1; i <= 12; i++) {
+                startPing(i);
+            }
+        }
+
+        function stopAll() {
+            for (let i = 1; i <= 12; i++) {
+                stopPing(i);
+            }
+        }
+
+        window.onload = loadSavedIPs;
+    </script>
+</head>
+<body>
+    <div class="container-fluid text-center mt-4">
+        <h2 class="mb-4">Multi Ping Monitor</h2>
+
+        <!-- Start All & Stop All Buttons -->
+        <div class="mb-4">
+            <button class="btn btn-lg btn-success me-2" onclick="startAll()">Start All</button>
+            <button class="btn btn-lg btn-danger" onclick="stopAll()">Stop All</button>
+        </div>
+
+        <div class="row">
+            <!-- Ping Rankings (Spans 3 Rows) -->
+            <div class="col-md-3 mb-4">
+                <div class="card ranking-card">
+                    <div id="ranking-list">
+                        <h5 class="text-light">Ping Rankings</h5>
+                        <p class="text-secondary">Waiting for data...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ping Boxes -->
+            <div class="col-md-9">
+                <div class="row">
+                    <script>
+                        for (let i = 1; i <= 12; i++) {
+                            document.write(`
+                                <div class="col-md-4 col-sm-6 mb-4">
+                                    <div class="card shadow-sm">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Ping ${i}</h5>
+                                            <div class="input-group mb-2">
+                                                <input type="text" id="host-${i}" class="form-control" placeholder="Enter website or IP" value="192.168.30.1" oninput="saveIP(${i})">
+                                            </div>
+                                            <button class="btn btn-primary btn-sm" onclick="startPing(${i})">Start</button>
+                                            <button class="btn btn-danger btn-sm" onclick="stopPing(${i})">Stop</button>
+                                            <br>
+                                            <p id="status-${i}" class="alert alert-secondary mt-2">Status will appear here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                        }
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
