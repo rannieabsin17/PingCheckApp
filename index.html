@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Monitor - Dark Mode</title>
+    <title>Ping Monitor - GitHub Pages</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -33,7 +33,7 @@
     </style>
     <script>
         let pingIntervals = {};
-        let pingResults = {}; // Stores results for sorting
+        let pingResults = {}; 
 
         function loadSavedIPs() {
             for (let i = 1; i <= 12; i++) {
@@ -51,25 +51,35 @@
 
         async function checkPing(id) {
             const host = document.getElementById(`host-${id}`).value;
-            const response = await fetch(`/ping?host=${host}`);
-            const data = await response.json();
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(`https://${host}`, { mode: 'no-cors' }); // No-cors mode for GitHub Pages
+                const latency = Math.round(performance.now() - startTime);
+                pingResults[host] = latency;
+
+                updateStatus(id, latency);
+                updateRanking();
+            } catch (error) {
+                pingResults[host] = Infinity;
+                updateStatus(id, "No Response");
+                updateRanking();
+            }
+        }
+
+        function updateStatus(id, latency) {
             const statusDisplay = document.getElementById(`status-${id}`);
 
-            let latency = data.latency === "N/A" ? Infinity : parseInt(data.latency);
-            pingResults[host] = latency;
-
-            if (data.status == "green") {
-                data.status = "success";
-            } else if (data.status == "yellow") {
-                data.status = "warning";
+            if (latency === "No Response") {
+                statusDisplay.textContent = "No Response ❌";
+                statusDisplay.className = "alert alert-danger mt-2";
+            } else if (latency < 200) {
+                statusDisplay.textContent = `Response in ${latency}ms ✅`;
+                statusDisplay.className = "alert alert-success mt-2";
             } else {
-                data.status = "danger";
+                statusDisplay.textContent = `Slow response: ${latency}ms ⚠️`;
+                statusDisplay.className = "alert alert-warning mt-2";
             }
-
-            statusDisplay.textContent = data.message;
-            statusDisplay.className = `alert alert-${data.status} mt-2`;
-
-            updateRanking();
         }
 
         function updateRanking() {
@@ -89,7 +99,7 @@
         function startPing(id) {
             if (!pingIntervals[id]) {
                 checkPing(id);
-                pingIntervals[id] = setInterval(() => checkPing(id), 1000);
+                pingIntervals[id] = setInterval(() => checkPing(id), 3000);
             }
         }
 
@@ -116,18 +126,16 @@
     </script>
 </head>
 <body>
-    <div class="container-fluid text-center mt-4">
+    <div class="container text-center mt-4">
         <h2 class="mb-4">Multi Ping Monitor</h2>
 
-        <!-- Start All & Stop All Buttons -->
         <div class="mb-4">
             <button class="btn btn-lg btn-success me-2" onclick="startAll()">Start All</button>
             <button class="btn btn-lg btn-danger" onclick="stopAll()">Stop All</button>
         </div>
 
         <div class="row">
-            <!-- Ping Rankings (Spans 3 Rows) -->
-            <div class="col-md-3 mb-4">
+            <div class="col-md-3">
                 <div class="card ranking-card">
                     <div id="ranking-list">
                         <h5 class="text-light">Ping Rankings</h5>
@@ -136,7 +144,6 @@
                 </div>
             </div>
 
-            <!-- Ping Boxes -->
             <div class="col-md-9">
                 <div class="row">
                     <script>
@@ -147,11 +154,10 @@
                                         <div class="card-body">
                                             <h5 class="card-title">Ping ${i}</h5>
                                             <div class="input-group mb-2">
-                                                <input type="text" id="host-${i}" class="form-control" placeholder="Enter website or IP" value="192.168.30.1" oninput="saveIP(${i})">
+                                                <input type="text" id="host-${i}" class="form-control" placeholder="Enter website or IP" value="example.com" oninput="saveIP(${i})">
                                             </div>
                                             <button class="btn btn-primary btn-sm" onclick="startPing(${i})">Start</button>
                                             <button class="btn btn-danger btn-sm" onclick="stopPing(${i})">Stop</button>
-                                            <br>
                                             <p id="status-${i}" class="alert alert-secondary mt-2">Status will appear here</p>
                                         </div>
                                     </div>
